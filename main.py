@@ -1,28 +1,50 @@
-from picamera2 import Picamera2
-from time import sleep
+import cv2
+import subprocess
 
-# Initialize the camera
-camera = Picamera2()
+# Start libcamera-vid in a subprocess to stream the camera feed
+libcamera_process = subprocess.Popen(
+    [
+        "libcamera-vid",
+        "--inline",
+        "--nopreview",
+        "-t", "0",  # Run indefinitely
+        "-o", "-",  # Output to stdout
+        "--width", "640",  # Set resolution
+        "--height", "480",
+        "--framerate", "30",
+    ],
+    stdout=subprocess.PIPE,
+    stderr=subprocess.DEVNULL,
+)
 
-# Configure the camera
-camera.configure(camera.preview_configuration())
+# Open the stream in OpenCV
+camera = cv2.VideoCapture(libcamera_process.stdout.fileno())
 
-# Start the camera preview
-camera.start()
-print("Camera is running. Press Ctrl+C to stop.")
+if not camera.isOpened():
+    print("Error: Could not open camera stream.")
+    libcamera_process.terminate()
+    exit()
 
+print("Press 'q' to quit.")
 try:
-    # Keep the camera running
     while True:
-        sleep(1)
-except KeyboardInterrupt:
-    # Stop the camera when interrupted
-    print("Stopping the camera...")
-    camera.stop()
-    print("Camera stopped.")
+        ret, frame = camera.read()
+        if not ret:
+            print("Failed to grab frame.")
+            break
 
-# Optionally, capture an image
-output_file = "captured_image.jpg"
-print(f"Capturing an image to {output_file}...")
-camera.capture_file(output_file)
-print(f"Image saved as {output_file}.")
+        # Display the frame
+        cv2.imshow("Camera Feed", frame)
+
+        # Exit on 'q'
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+except KeyboardInterrupt:
+    print("\nExiting...")
+
+# Cleanup
+camera.release()
+libcamera_process.terminate()
+cv2.destroyAllWindows()
+print("Camera released.")
