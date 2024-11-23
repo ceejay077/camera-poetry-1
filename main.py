@@ -1,52 +1,51 @@
-import libcamera
-import cv2
-import numpy as np
+# From picamera2 examples: capture_jpeg.py 
+#!/usr/bin/python3
 
-def start_camera_preview():
-    # Create a Camera Manager instance
-    camera_manager = libcamera.CameraManager()
+import time, requests, signal, os
 
-    # List available cameras
-    cameras = camera_manager.cameras()
-    
-    if not cameras:
-        print("No cameras found!")
-        return
-    
-    # Use the first available camera
-    camera = cameras[0]
+from gpiozero import LED, Button
 
-    # Create a configuration for the camera (e.g., video stream)
-    config = camera.create_configuration([libcamera.StreamRole.Video])
-    camera.configure(config)
+#instantiate buttons
+shutter_button = Button(16, hold_time = 2)
+led = LED(20)
 
-    # Start the camera
-    camera.start()
+def handle_pressed():
+  print("button pressed!")
+  led.on()
 
-    # Create a window using OpenCV to display the stream
-    cv2.namedWindow('Camera Preview', cv2.WINDOW_NORMAL)
+def handle_held():
+  print("button held!")
 
-    try:
-        while True:
-            # Capture the frame (it may be in a different format like YUV or RGB, adjust accordingly)
-            frame = camera.capture()
+def handle_released():
+  print("button released!")
+  led.off()
 
-            # Convert the frame to a format that OpenCV can handle (RGB, BGR)
-            # Assuming the frame is in YUV format, we may need to convert it to RGB or BGR
-            image = np.array(frame)  # You'll need to adjust depending on the frame format
 
-            # Display the frame using OpenCV
-            cv2.imshow('Camera Preview', image)
+#################################
+# For RPi debugging:
+# Handle Ctrl+C script termination gracefully
+# (Otherwise, it shuts down the entire Pi -- bad)
+#################################
+def handle_keyboard_interrupt(sig, frame):
+  print('Ctrl+C received, stopping script')
+  led.off() #make sure LED is off before exiting
+  #weird workaround I found from rpi forum to shut down script without crashing the pi
+  os.kill(os.getpid(), signal.SIGUSR1)
 
-            # Break the loop if the user presses the 'q' key
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                break
-    except KeyboardInterrupt:
-        pass
-    finally:
-        # Stop the camera and clean up
-        camera.stop()
-        cv2.destroyAllWindows()
 
-if __name__ == "__main__":
-    start_camera_preview()
+################################
+# LISTEN FOR BUTTON PRESS EVENTS
+################################
+shutter_button.when_pressed = handle_pressed
+shutter_button.when_held = handle_held
+shutter_button.when_released = handle_released
+
+# Handle Ctrl+C gracefully
+signal.signal(signal.SIGINT, handle_keyboard_interrupt)
+
+# Test LED independently
+led.on()
+time.sleep(1)
+led.off()
+
+signal.pause()
