@@ -1,38 +1,28 @@
-import cv2
+from picamera2 import Picamera2
+from time import sleep
 
-# Open the camera (use 0 for the default camera)
-camera = cv2.VideoCapture(0)  # Camera index 0 corresponds to the Pi Camera
+# Initialize the camera
+camera = Picamera2()
 
-# Check if the camera opened successfully
-if not camera.isOpened():
-    print("Error: Could not open the camera.")
-    exit()
+# Configure the camera
+camera.configure(camera.preview_configuration())
 
-# Set camera resolution (optional, adjust as needed)
-camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+# Start the camera preview
+camera.start()
+print("Camera is running. Press Ctrl+C to stop.")
 
-print("Press 'q' to quit.")
 try:
+    # Keep the camera running
     while True:
-        # Capture frame-by-frame
-        ret, frame = camera.read()
-
-        if not ret:
-            print("Failed to grab a frame.")
-            break
-
-        # Display the resulting frame
-        cv2.imshow("Camera Feed", frame)
-
-        # Press 'q' on the keyboard to exit the loop
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-
+        sleep(1)
 except KeyboardInterrupt:
-    print("\nExiting...")
+    # Stop the camera when interrupted
+    print("Stopping the camera...")
+    camera.stop()
+    print("Camera stopped.")
 
-# Release the camera and close all OpenCV windows
-camera.release()
-cv2.destroyAllWindows()
-print("Camera released.")
+# Optionally, capture an image
+output_file = "captured_image.jpg"
+print(f"Capturing an image to {output_file}...")
+camera.capture_file(output_file)
+print(f"Image saved as {output_file}.")
